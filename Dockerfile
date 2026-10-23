@@ -1,5 +1,5 @@
 # Build stage: compile the TypeScript application.
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
@@ -7,7 +7,10 @@ RUN corepack enable pnpm && corepack prepare pnpm@9.12.1 --activate
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile \
+    --fetch-retries=5 \
+    --fetch-timeout=120000 \
+    --network-concurrency=4
 
 COPY . .
 
@@ -15,7 +18,7 @@ RUN pnpm build
 
 
 # Install production dependencies only.
-FROM node:22-alpine AS production-deps
+FROM node:24-alpine AS production-deps
 
 WORKDIR /app
 
@@ -23,11 +26,14 @@ RUN corepack enable pnpm && corepack prepare pnpm@9.12.1 --activate
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile \
+    --fetch-retries=5 \
+    --fetch-timeout=120000 \
+    --network-concurrency=8
 
 
 # Production runtime image.
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 
 ENV NODE_ENV=production
 ENV PORT=3000
